@@ -1,0 +1,73 @@
+---
+title: 'Assignment 2 - Spiders'
+author: Molly Richard
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup2, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+packages_needed <- c("ggplot2", # graphics
+                     "arm", # display() etc.
+                     "ggfortify", # check model assumptions
+                     "AICcmodavg",
+                     "grid", 
+                     "varhandle"
+                     )
+pk_to_install <- packages_needed [!( packages_needed %in% rownames(installed.packages())  )]
+if(length(pk_to_install)>0 ){
+  install.packages(pk_to_install,repos="http://cran.r-project.org")
+}
+#lapply(packages_needed, require, character.only = TRUE)
+library(ggplot2)
+library(readr)
+library(arm)
+library(ggfortify)
+library(AICcmodavg)
+library(grid)
+library(varhandle)
+```
+
+``` {r}
+spiders <- read_csv("spiders.csv")
+```
+
+
+```{r model}
+binary_spiders <-to.dummy(spiders$status, "status")
+spiders_merged <-cbind(spiders, binary_spiders)
+
+spider_glm <- glm(status.present ~ grainsize, data= spiders_merged, family= binomial)
+```
+
+```{r graph}
+ggplot(spider_glm,aes(grainsize,status.present)) +geom_point() +
+  geom_smooth(method="glm", method.args=list(family="binomial"(link="logit")))+
+  geom_hline(yintercept = mean(spiders_merged$status.present), linetype = "dashed") +
+  labs(title="GLM, binomial count (presence/absence)")
+```
+
+Based off the visual from graph there appears to be is a positive relationship between the grain size and the presence of the species; as grain size increases there is a greater likelihood of the spider being present.
+
+```{r coefficent}
+coef(spider_glm)
+confint(spider_glm)
+```
+
+```{r}
+#back transform the data 
+involgit <- function(x) (1+exp(-x))
+invlogit(confint(spider_glm))
+invlogit(coef(spider_glm))
+```
+To determine the linear confidence intervals, intercept, and slope, the glm has to be back transformed from the logit values.  The resulting confidence intervals do not contain zero (x=0.009, 0.674) supporting the alternative hypothesis. 
+
+```{r}
+summary(spider_glm)
+```
+
+The summary table shows the risidual deviance (30.632) is less than the null deviance (35.165), further supporting the alternative hypothesis and rejects the null hypothesis: there is a relationship between the presence of the burrowing wolf spider and the size of sand grains on beaches. 
+
+While there is a positive relationship the p-values (0.08, 0.22) does not support this as a signficant relationship. Future conservation efforts of *Lycosa ishikariana* could be aided by the use of the equation y=0.99+16x using the inverse coefficents to determine the probability of survival on beaches with a particular grain size.
+
